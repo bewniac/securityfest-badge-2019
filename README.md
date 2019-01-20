@@ -25,3 +25,12 @@ Still not pretty, but much better and fun to do! I ordered 10 PCBs from https://
 When I did some programming trying to come up with some fun stuff to add I found I was missing something, buttons for interaction. I wanted to have a menu and the user should be able to go through the menu and open different programs. So I needed to modify the board a bit. I used the ADC pin to add to buttons controlled by one pin by adding different value resistors to each button, when pressed a button the ADC pin returned different values for each button. And I wanted another thing added to the board, it has to be battery powered! A Li-Po battery should do the trick. But we also like to charge the Li-Po battery. So I modified my prototype by hand, added buttons, a Li-Po battery and a Li-Po charger circuit. This was the result.
 
 ![PCB_MOD](https://github.com/bewniac/securityfest-badge-2019/blob/master/Prototype_PCB_mod.jpg)
+
+So now I got a prototype to work on. It runs on battery and the battery can be charged, AWESOME! Now I want to make the final design. A square badge feels so boring and we've got a cool logo to work with. So I started to create a schematic including the charging curcuit and the buttons. The final schematic:
+
+![Final schematic](https://github.com/bewniac/securityfest-badge-2019/blob/master/Final_schematic.png)
+
+And the final PCB design:
+
+![Final PCB](https://github.com/bewniac/securityfest-badge-2019/blob/master/Final_PCB.png)
+
