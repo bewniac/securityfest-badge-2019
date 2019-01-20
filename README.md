@@ -17,3 +17,11 @@ Not so pretty, I know. But it worked. But then I wanted to create my own PCB pro
 
 ![Schematic prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/Prototype1_schematic.png)
 ![PCB Prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/PCB_Prototype1.png)
+
+Still not pretty, but much better and fun to do! I ordered 10 PCBs from https://jlcpcb.com/ and the components I was missing from https://lcsc.com/ and waited. When it arrived I was extatic! My first PCB! I soldered all the components as soon as I got it, and I successfully soldered all components (although I had to fix some errors with the backlight LEDs at first). 
+
+![PCB](https://github.com/bewniac/securityfest-badge-2019/blob/master/Prototype_PCB2.jpg)
+
+When I did some programming trying to come up with some fun stuff to add I found I was missing something, buttons for interaction. I wanted to have a menu and the user should be able to go through the menu and open different programs. So I needed to modify the board a bit. I used the ADC pin to add to buttons controlled by one pin by adding different value resistors to each button, when pressed a button the ADC pin returned different values for each button. And I wanted another thing added to the board, it has to be battery powered! A Li-Po battery should do the trick. But we also like to charge the Li-Po battery. So I modified my prototype by hand, added buttons, a Li-Po battery and a Li-Po charger circuit. This was the result.
+
+![PCB_MOD](https://github.com/bewniac/securityfest-badge-2019/blob/master/Prototype_PCB_mod.jpg)
