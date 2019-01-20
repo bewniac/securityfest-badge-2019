@@ -11,26 +11,26 @@ We wanted to do something cool for Security fest 2019 and we wanted to do it our
 
 Simple enough. I built a prototype that could be powered by 5V micro USB. Although the components require 3.3V, but with a voltage regulator (LD1117V33) this wasn't an issue. The result was this:
 
-![First Prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/First_prototype.jpg)
+![First Prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/First_prototype.jpg)
 
 Not so pretty, I know. But it worked. But then I wanted to create my own PCB prototype, mainly with components I could solder by hand as I'm never done surface mount soldering myself. So I created my first schematic and PCB design in KiCAD. 
 
-![Schematic prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/Prototype1_schematic.png)
-![PCB Prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/PCB_Prototype1.png)
+![Schematic prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Prototype1_schematic.png)
+![PCB Prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/PCB_Prototype1.png)
 
 Still not pretty, but much better and fun to do! I ordered 10 PCBs from https://jlcpcb.com/ and the components I was missing from https://lcsc.com/ and waited. When it arrived I was extatic! My first PCB! I soldered all the components as soon as I got it, and I successfully soldered all components (although I had to fix some errors with the backlight LEDs at first). 
 
-![PCB](https://github.com/bewniac/securityfest-badge-2019/blob/master/Prototype_PCB2.jpg)
+![PCB](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Prototype_PCB2.jpg)
 
 When I did some programming trying to come up with some fun stuff to add I found I was missing something, buttons for interaction. I wanted to have a menu and the user should be able to go through the menu and open different programs. So I needed to modify the board a bit. I used the ADC pin to add to buttons controlled by one pin by adding different value resistors to each button, when pressed a button the ADC pin returned different values for each button. And I wanted another thing added to the board, it has to be battery powered! A Li-Po battery should do the trick. But we also like to charge the Li-Po battery. So I modified my prototype by hand, added buttons, a Li-Po battery and a Li-Po charger circuit. This was the result.
 
-![PCB_MOD](https://github.com/bewniac/securityfest-badge-2019/blob/master/Prototype_PCB_mod.jpg)
+![PCB_MOD](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Prototype_PCB_mod.jpg)
 
 So now I got a prototype to work on. It runs on battery and the battery can be charged, AWESOME! Now I want to make the final design. A square badge feels so boring and we've got a cool logo to work with. So I started to create a schematic including the charging curcuit and the buttons. The final schematic:
 
-![Final schematic](https://github.com/bewniac/securityfest-badge-2019/blob/master/Final_schematic.png)
+![Final schematic](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Final_schematic.png)
 
 And the final PCB design:
 
-![Final PCB](https://github.com/bewniac/securityfest-badge-2019/blob/master/Final_PCB.png)
+![Final PCB](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Final_PCB.png)
 
