@@ -1,3 +1,6 @@
+# CTF Walkthrough
+This code should not be released with the privatekey or this walkthrough. Remove before making public. 
+
 Steps:
 * Try to read flag.txt from browser, not possible.
 * Checking source code tells you implementation is impossible. 
