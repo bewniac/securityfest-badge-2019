@@ -1,17 +1,19 @@
 # CTF Walkthrough
-This code should not be released with the privatekey or this walkthrough. Remove before making public. 
+This code should not be released with the files private.key, flag.txt or this walkthrough. Remove before making public. 
 
 Steps:
 * Try to read flag.txt from browser, not possible.
 * Checking source code tells you implementation is impossible. 
-* Modifying code and try to upload using OTA browser.
+* Modifying code and try to upload using browser.
 * Signing failed.
 * Theres an image named X.key.jpg
 * Using stego
-* Password on back of badge
+```
+steghide extract -sf image.jpg 
+```
+* Password on back of badge (n00badge)
 * Get private.key file
-* Looks like base64. Decode
-* Get private key
-* Signes new firmware
-* Upload modified code
+* Decode base64 private key.
+* Signes new firmware with private key.
+* Upload signed and modified binary using browser.
 * Get flag
