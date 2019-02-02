@@ -1,28 +1,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 
-/*
- * Snake 
- * 
- * Todo:
- * 
- * Snake class:
- *  Head position
- *  Body linked list
- *  Increase length
- *  Collision detection
- *  Move
- *  Draw snake
- *  
- * Food class:
- *  Random position
- *  Draw food
- *  
- * Block class:
- *  X and Y coordinates
- *  
- */
-
 #define UP 0
 #define MRIGHT 1
 #define DOWN 2
@@ -69,8 +47,7 @@ class Block {
     int getY() {
       return this->y;
     }
-    
-    
+
     virtual ~Block() {};
 };
 class Food {
@@ -244,6 +221,7 @@ class Snake {
 };
 
 class Game {
+  
   private:
     Snake *s;
     Food *f;
@@ -251,6 +229,7 @@ class Game {
     
   public:
     Game(int Button) {
+      Serial.begin(115200);
       this->Button = Button;
       pinMode(Button, INPUT);
       this->f = new Food();
@@ -260,8 +239,8 @@ class Game {
       while(1) {
         display.clearDisplay();
         int bPressed = analogRead(Button);
-        if (300 < bPressed) { // A button
-          if ( bPressed < 400 ) {  // Move up & down
+        if (300 < bPressed) { 
+          if ( bPressed < 400 ) {  
             if (s->GetDirection() == UP) {
               s->SetDirection(MRIGHT);
             }
@@ -276,7 +255,7 @@ class Game {
             }
             delay(100);
           }
-          if (600 < bPressed) { // EXIT
+          if (600 < bPressed) { 
             if (s->GetDirection() == UP) {
               s->SetDirection(MLEFT);
             }

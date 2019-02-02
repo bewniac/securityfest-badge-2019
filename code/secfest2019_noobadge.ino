@@ -1,12 +1,14 @@
+#include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 #include "bitmaps.h"
 #include "pages.h"
 #include "snake.h"
+#include <FS.h>
+#include <ESP8266HTTPUpdateServer.h>
+#include <ESP8266WebServer.h>
 
-// Software SPI (slower updates, more flexible pin options):
 // GPIO14 - Serial clock out (SCLK)
 // GPIO13 - Serial data out (DIN)
 // GPIO12 - Data/Command select (D/C)
@@ -14,117 +16,129 @@
 // GPIO04 - LCD reset (RST)
 Adafruit_PCD8544 display = Adafruit_PCD8544(14, 13, 12, 5, 4);
 
-ESP8266WebServer server(80);
-
-void handleRoot() {
-  server.send(200, "text/plain; charset=utf-8", startpage);
-  
-}
-
-void handleNotFound() {
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.send(404, "text/plain", message);
-}
-
 int OUTPIN = 16; // GPIO16 - Free PIN
 int ADC_Button = A0; // ADC - Analog digital converter pin for buttons
+int LED = 2; // Onboard LED, LOW turns LED on for some reason.
 
-String led_items[3] = {"1. ON", "2. OFF", "3. EXIT"};
-String menu_items[5] = {"1. Logo", "2. Schedule" , "3. LED", "4. Snake", "5. Network"};
+String fs_menu[2] = {"1. List", "2. Exit"};
+String menu_items[5] = {"1. Logo", "2. Schedule" , "3. Files", "4. Snake", "5. Network"};
 String *currentMenu = menu_items;
-int CurrentMenuSize = (sizeof(menu_items)/sizeof(String));
+int CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
 int CurrentItem = 0;
+int bPressed = 0;
 
-int ConnClients = 0;
-String mac = WiFi.softAPmacAddress().c_str();
+// Web server and updater
+ESP8266WebServer httpServer(80);
+ESP8266HTTPUpdateServer httpUpdater;
 
-const char* ssid = "Securityfest_badge";
-const char* password = "esp_86F3EB";
-
-void setup(void) {    
-  pinMode(OUTPIN, OUTPUT);
-  pinMode(ADC_Button, INPUT);
-  
-  Serial.begin(115200);
-
-  IPAddress local_IP(10,11,12,13);
-  IPAddress gateway(10,11,12,13);
-  IPAddress subnet(255,255,255,0);
-  WiFi.softAPConfig(local_IP, gateway, subnet);
-  WiFi.softAP(ssid, password);
-  Serial.println(ssid);
-  Serial.println(password);
-  Serial.println(mac);
-
-  display.begin(60);
-  
-  server.on("/", handleRoot);
-  server.on("/schedule", []() {
-    server.send(200, "text/html; charset=utf-8", schedule);
-  });
-  // POST TO DEVICE WHICH IS THE NEXT TALK
-  server.on("/api/nexttalk", []() {
-     if (server.method() == HTTP_POST) {
-        String data = "";
-        for (int i=0; i<server.args(); i++) {
-          if (server.argName(i) == "talk") {
-            data+=server.arg(i);
+void handleRoot() {
+  httpServer.send(200, "text/plain", startpage);
+}
+void handleSchedule() {
+  httpServer.send(200, "text/html", schedule);
+}
+void handleFiles() {
+  if (httpServer.args() > 0) {
+    if (httpServer.argName(0) == "file") {
+      if (httpServer.arg("file") == "") {
+        httpServer.send(200, "text/plain", "Missing file.");
+      }
+      else {
+        SPIFFS.begin();
+        String filename = httpServer.arg("file");
+        filename.trim();
+        /*if (filename == "flag.txt") {
+          httpServer.send(200, "text/plain", "Not really so simple.");
+        }*/
+        File file = SPIFFS.open("/" + filename, "r");
+        if (!file) {
+          httpServer.send(200, "text/plain", "Error reading file.");
+        }
+        else {
+          if (httpServer.arg("type") == "jpg") {
+            httpServer.streamFile(file, "image/jpeg");
+            httpServer.send(200, "text/plain", "Here you go.");
+          }
+          if (httpServer.arg("type") == "txt") {
+            String fileContent = "";
+            for (int i = 0; i < file.size(); i++) {
+              fileContent += (char)file.read();
+            }
+            httpServer.send(200, "text/plain", fileContent);
+          }
+          else {
+            httpServer.send(200, "text/plain", "Missing type");
           }
         }
-        if (data == "") {
-          server.send(418, "text/html; charset=utf-8", "I'm a teapot!");
-        }
-        display.clearDisplay();
-        display.print(data);
-        display.display();
-        
-     } else {
-        server.send(418, "text/html; charset=utf-8", "I'm a teapot!");
-     }
-  });
+      }
+    }
+    else {
+      httpServer.send(200, "text/plain", "Unknown parameter.");
+    }
+  } else {
+    httpServer.send(200, "text/plain", "Directory / \n" + getFiles());
+  }
+}
 
-  server.onNotFound(handleNotFound);
-  server.begin();
-  Serial.println("HTTP server started");
-  
+void setup(void) {
+  // Setting up buttons
+  pinMode(OUTPIN, OUTPUT);
+  pinMode(ADC_Button, INPUT);
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, HIGH); // Turn LED off.
+
+  // Serial for debugging
+  Serial.begin(115200);
+
+  /* WiFi Soft Accesspoint setup*/
+  boolean result = WiFi.softAP("SECFEST_19", "hejsansvejsan");
+  if (result) {
+    Serial.println("Success setting up AP");
+  }
+  else {
+    Serial.println("Failed setting up AP");
+  }
+  // Display setup
+  display.begin(100);
+  display.setTextSize(0);
+
+  httpUpdater.setup(&httpServer);
+  httpServer.on("/", handleRoot);
+  httpServer.on("/schedule", handleSchedule);
+  httpServer.on("/filesystem", handleFiles);
+  httpServer.begin();
   PrintMenu(currentMenu);
 }
 
 void loop(void) {
-  server.handleClient();
-  int bPressed = analogRead(ADC_Button);
-  if (300 < bPressed) { // A button
+  // Need delay keep wifi running while reading ADC button. Somehow they dont work at the same time.
+  delay(100);
+  //Webserver client handle
+  httpServer.handleClient();
+
+  bPressed = analogRead(ADC_Button);
+  if (300 < bPressed) { // A button is pressed
     if ( bPressed < 400 ) {  // Action button
-      Serial.println(bPressed);
+      //Serial.println(bPressed);
       delay(300);
       Action(currentMenu);
     }
-    if (600 < bPressed) { // Move button 
-      Serial.println(bPressed);
-      CurrentItem = ((CurrentItem+1) % CurrentMenuSize);
+    if (400 < bPressed) { // Move button
+      //Serial.println(bPressed);
+      CurrentItem = ((CurrentItem + 1) % CurrentMenuSize);
       delay(300);
       PrintMenu(currentMenu);
     }
-  } 
+  }
 }
 
 void PrintMenu(String *menu) {
   display.clearDisplay();
-  for (int i=0; i<CurrentMenuSize; i++) {
+  for (int i = 0; i < CurrentMenuSize; i++) {
     if (CurrentItem == i) {
       display.print("* ");
     } else {
-      display.print("  ");  
+      display.print("  ");
     }
     display.println(menu[i]);
   }
@@ -133,53 +147,76 @@ void PrintMenu(String *menu) {
 
 void Action(String *menu) {
   if (currentMenu == menu_items) {
-      switch (CurrentItem) {
-        case 0:
-          printLogo();
-          break;
-        case 1:
-          printSchedule();
-          break;
-        case 2:
-          CurrentItem = 0;
-          currentMenu = led_items;
-          CurrentMenuSize = (sizeof(led_items)/sizeof(String));
-          PrintMenu(currentMenu);
-          break;
-        case 3:
-          snake();
-          break;
-        case 4:
-          printNetwork();
-          break;
-        default:
-          PrintMenu(currentMenu);
-      }
-  } else if (currentMenu == led_items) {
-      switch (CurrentItem) {
-        case 0: // ON
-          digitalWrite(OUTPIN, HIGH);
-          break;
-        case 1: // OFF
-          digitalWrite(OUTPIN, LOW);
-          break;
-        case 2:
-          CurrentItem = 0;
-          CurrentMenuSize = (sizeof(menu_items)/sizeof(String));
-          currentMenu = menu_items;
-          PrintMenu(currentMenu);
-          break;
-        default:
-          PrintMenu(currentMenu); 
-      }
+    switch (CurrentItem) {
+      case 0:
+        printLogo();
+        break;
+      case 1:
+        printSchedule();
+        break;
+      case 2:
+        CurrentItem = 0;
+        currentMenu = fs_menu;
+        CurrentMenuSize = (sizeof(fs_menu) / sizeof(String));
+        PrintMenu(currentMenu);
+        break;
+      case 3:
+        snake();
+        break;
+      case 4:
+        printNetwork();
+        break;
+      default:
+        PrintMenu(currentMenu);
+    }
+  } else if (currentMenu == fs_menu) {
+    File flag, f;
+    Dir dir;
+    String userInput;
+    switch (CurrentItem) {
+      case 0:
+        SPIFFS.begin();
+        // Present list of files on FS
+        display.clearDisplay();
+        dir = SPIFFS.openDir("/");
+        display.println("Filename");
+        while (dir.next()) {
+          display.print(dir.fileName() + "\n");
+        }
+        display.display();
+        if (Serial.available()) {
+          while (Serial.available() > 0) {
+            userInput += char(Serial.read());
+
+          }
+          userInput.trim();
+          flag = SPIFFS.open(userInput, "r");
+          if (!flag) {
+            Serial.println("ERROR: Can't open file");
+          }
+          Serial.println("----- CONTENT -----");
+          for (int i = 0; i < flag.size(); i++) {
+            Serial.print((char)flag.read());
+          }
+          Serial.println("\n----- CONTENT -----");
+        }
+        break;
+      case 1:
+        CurrentItem = 0;
+        CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
+        currentMenu = menu_items;
+        PrintMenu(currentMenu);
+        break;
+      default:
+        PrintMenu(currentMenu);
+    }
   }
 }
 
 void printNetwork(void) {
   display.clearDisplay();
-  display.println("SSID: " + String(ssid));
-  display.println("PSK: " + String(password));
   display.println(WiFi.softAPIP());
+  display.display();
 }
 
 void snake(void) {
@@ -199,10 +236,20 @@ void printLogo(void) {
 }
 
 void animateLogo(void) {
-  for (int i=-48; i<85; i++) {
+  for (int i = -48; i < 85; i++) {
     display.clearDisplay();
     display.drawBitmap(i, 0, logo, 48, 48, 1);
     display.display();
     delay(50);
   }
+}
+
+String getFiles() {
+  SPIFFS.begin();
+  Dir dir = SPIFFS.openDir("/");
+  String fileList = "";
+  while (dir.next()) {
+    fileList += dir.fileName() + "\n";
+  }
+  return fileList;
 }
