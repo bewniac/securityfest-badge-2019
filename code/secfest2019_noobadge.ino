@@ -20,8 +20,10 @@ int OUTPIN = 16; // GPIO16 - Free PIN
 int ADC_Button = A0; // ADC - Analog digital converter pin for buttons
 int LED = 2; // Onboard LED, LOW turns LED on for some reason.
 
-String fs_menu[2] = {"1. List", "2. Exit"};
-String menu_items[5] = {"1. Logo", "2. Schedule" , "3. Files", "4. Snake", "5. Network"};
+int maxRows = 6;
+String fs_menu[2] = {"List", "Exit"};
+String menu_items[8] = {"Logo", "Schedule" , "Files", "Snake", "Network", "Something", "Something", "Darkside"};
+String net_menu[3] = {"Network conf.", "Scan", "Exit"};
 String *currentMenu = menu_items;
 int CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
 int CurrentItem = 0;
@@ -35,7 +37,7 @@ void handleRoot() {
   httpServer.send(200, "text/plain", startpage);
 }
 void handleSchedule() {
-  httpServer.send(200, "text/html", schedule);
+  httpServer.send(200, "text/html", schedule[0]);
 }
 void handleFiles() {
   if (httpServer.args() > 0) {
@@ -47,7 +49,9 @@ void handleFiles() {
         SPIFFS.begin();
         String filename = httpServer.arg("file");
         filename.trim();
-        
+        /*if (filename == "flag.txt") {
+          httpServer.send(200, "text/plain", "Not really so simple.");
+        }*/
         File file = SPIFFS.open("/" + filename, "r");
         if (!file) {
           httpServer.send(200, "text/plain", "Error reading file.");
@@ -58,7 +62,11 @@ void handleFiles() {
             httpServer.send(200, "text/plain", "Here you go.");
           }
           if (httpServer.arg("type") == "txt") {
-            httpServer.send(200, "text/plain", "Not implemented yet..");
+            String fileContent = "";
+            for (int i = 0; i < file.size(); i++) {
+              fileContent += (char)file.read();
+            }
+            httpServer.send(200, "text/plain", fileContent);
           }
           else {
             httpServer.send(200, "text/plain", "Missing type");
@@ -74,6 +82,9 @@ void handleFiles() {
   }
 }
 
+String ssid = "SECFEST_19";
+String passwd = "SECFEST_19";
+
 void setup(void) {
   // Setting up buttons
   pinMode(OUTPIN, OUTPUT);
@@ -85,7 +96,7 @@ void setup(void) {
   Serial.begin(115200);
 
   /* WiFi Soft Accesspoint setup*/
-  boolean result = WiFi.softAP("SECFEST_19", "hejsansvejsan");
+  boolean result = WiFi.softAP(ssid, passwd);
   if (result) {
     Serial.println("Success setting up AP");
   }
@@ -101,6 +112,7 @@ void setup(void) {
   httpServer.on("/schedule", handleSchedule);
   httpServer.on("/filesystem", handleFiles);
   httpServer.begin();
+  //animateLogo();
   PrintMenu(currentMenu);
 }
 
@@ -112,29 +124,99 @@ void loop(void) {
 
   bPressed = analogRead(ADC_Button);
   if (300 < bPressed) { // A button is pressed
-    if ( bPressed < 400 ) {  // Action button
-      //Serial.println(bPressed);
-      delay(300);
+    if ( bPressed < 400 ) {  // Action button  
+      delay(60);
       Action(currentMenu);
     }
     if (400 < bPressed) { // Move button
       //Serial.println(bPressed);
       CurrentItem = ((CurrentItem + 1) % CurrentMenuSize);
-      delay(300);
+      delay(60);
       PrintMenu(currentMenu);
     }
   }
 }
-
+void printLongText(String ltext) {
+  int maxChars = 84;
+  int pages = ltext.length()/maxChars;
+  int currentPage = 0;
+  display.clearDisplay();
+  for (int i=0; i<maxChars+1; i++) {
+    display.print(ltext[i]);
+  }
+  display.display();
+  while (currentPage <= pages) {
+    delay(50);
+    bPressed = analogRead(ADC_Button);
+    if (600 < bPressed) {
+      // Move button is pressed, change page
+      delay(60);
+      display.clearDisplay();
+      currentPage++;
+      int startChar = currentPage*maxChars;
+      if (ltext.length() < (startChar+84)) {
+        for (int i=startChar; i<ltext.length(); i++) {
+          if(char(ltext[startChar]) == ' ') {
+            ++i;
+          }
+          display.print(ltext[i]);
+        } 
+      }
+      else {
+        for (int i=startChar; i<(startChar+84); i++) {
+          display.print(ltext[i]);
+        }
+      }
+      display.display();
+    }
+    
+  }
+}
+void printSchedule(void) {
+  //printLongText(text);
+}
 void PrintMenu(String *menu) {
   display.clearDisplay();
-  for (int i = 0; i < CurrentMenuSize; i++) {
+  int firstItem = CurrentItem - (CurrentItem%6);
+  
+  for (int i = firstItem; i < CurrentMenuSize; i++) {
     if (CurrentItem == i) {
-      display.print("* ");
+      display.setTextColor(WHITE, BLACK);
     } else {
-      display.print("  ");
+      display.setTextColor(BLACK, WHITE);
     }
-    display.println(menu[i]);
+    if (menu[i].length() < 14) {
+      display.println(menu[i]);
+    }
+    else {
+      for (int c=0; c<14; c++) {
+        display.print(menu[i][c]);
+      }
+    }
+  }
+  if (currentMenu == menu_items) {
+    display.drawBitmap(40, 0, logo, 48, 48, 1);
+  }
+  display.display();
+  if (14 < menu[CurrentItem].length()) {
+    int startChar = 0;
+    display.setTextColor(WHITE, BLACK);
+    while(14 < (menu[CurrentItem].length()-startChar)) {
+      display.setCursor(0, (8*(CurrentItem % 6)));
+      startChar++;
+      for (int c=startChar; c<(startChar+14); c++) {
+        
+        display.print(menu[CurrentItem][c]);
+      }
+      bPressed = analogRead(ADC_Button);
+      delay(150);
+      if (600 < bPressed) {
+        display.display();
+        display.setTextColor(BLACK, WHITE);
+        return;
+      }
+      display.display();
+    }   
   }
   display.display();
 }
@@ -146,7 +228,10 @@ void Action(String *menu) {
         printLogo();
         break;
       case 1:
-        printSchedule();
+        CurrentItem = 0;
+        currentMenu = schedule;
+        CurrentMenuSize = (sizeof(schedule) / sizeof(String));
+        PrintMenu(currentMenu);
         break;
       case 2:
         CurrentItem = 0;
@@ -158,7 +243,10 @@ void Action(String *menu) {
         snake();
         break;
       case 4:
-        printNetwork();
+        CurrentItem = 0;
+        currentMenu = net_menu;
+        CurrentMenuSize = (sizeof(net_menu) / sizeof(String));
+        PrintMenu(currentMenu);
         break;
       default:
         PrintMenu(currentMenu);
@@ -204,23 +292,77 @@ void Action(String *menu) {
       default:
         PrintMenu(currentMenu);
     }
+  } else if (currentMenu == net_menu) {
+    boolean result;
+    switch (CurrentItem) {
+      case 0:
+        printNetwork();
+        break;
+      case 1:
+        display.clearDisplay();
+        display.println("Wait for it...");
+        display.display();
+        ScanNetwork();
+        /* When scanning is complete create a access point once more */
+        WiFi.mode(WIFI_AP);
+        result = WiFi.softAP(ssid, passwd);
+        if (result) {
+          Serial.println("Success setting up AP");
+        }
+        else {
+          Serial.println("Failed setting up AP");
+        }
+        break;
+      case 2:
+        CurrentItem = 0;
+        CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
+        currentMenu = menu_items;
+        PrintMenu(currentMenu);
+        break;
+      default:
+        PrintMenu(currentMenu);
+    }
+  } else if (currentMenu == schedule) {
+    switch(CurrentItem) {
+      case 0: // Opening
+        printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
+        break;
+      case 1: // Keynote
+        printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
+        break;
+      case 2: // Second talk
+        printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
+        break;
+      case 3: // Third talk
+        printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
+        break;
+      default:
+        PrintMenu(currentMenu);
+    }
   }
 }
-
+void ScanNetwork() {
+  display.clearDisplay();
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  int n = WiFi.scanNetworks();
+  for (int i = 0; i < n; i++) {
+    display.println(WiFi.SSID(i));
+  }
+  display.display();
+  
+}
 void printNetwork(void) {
   display.clearDisplay();
-  display.println(WiFi.softAPIP());
+  display.println("SSID: " + ssid);
+  display.println("PSK: " + passwd);
+  display.println("IP: " + String(WiFi.softAPIP()));
   display.display();
 }
 
 void snake(void) {
   Game g(ADC_Button);
   g.Run(display);
-}
-void printSchedule(void) {
-  display.clearDisplay();
-  display.println("TBD");
-  display.display();
 }
 
 void printLogo(void) {
