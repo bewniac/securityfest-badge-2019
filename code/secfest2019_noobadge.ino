@@ -337,7 +337,7 @@ void Action(String *menu) {
       case 3: // Third talk
         printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
         break;
-      case 9: // EXIT
+      case 8: // EXIT
         CurrentItem = 0;
         CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
         currentMenu = menu_items;
