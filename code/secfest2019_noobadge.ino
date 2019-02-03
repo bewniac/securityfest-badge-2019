@@ -219,6 +219,7 @@ void PrintMenu(String *menu) {
     }   
   }
   display.display();
+  display.setTextColor(BLACK, WHITE);
 }
 
 void Action(String *menu) {
