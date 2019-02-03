@@ -156,8 +156,8 @@ void printLongText(String ltext) {
       int startChar = currentPage*maxChars;
       if (ltext.length() < (startChar+84)) {
         for (int i=startChar; i<ltext.length(); i++) {
-          if(char(ltext[startChar]) == ' ') {
-            ++i;
+          if(ltext[startChar] == ' ') {
+            i = i+1;
           }
           display.print(ltext[i]);
         } 
@@ -210,7 +210,7 @@ void PrintMenu(String *menu) {
       }
       bPressed = analogRead(ADC_Button);
       delay(150);
-      if (600 < bPressed) {
+      if (100 < bPressed) {
         display.display();
         display.setTextColor(BLACK, WHITE);
         return;
@@ -219,6 +219,7 @@ void PrintMenu(String *menu) {
     }   
   }
   display.display();
+  display.setTextColor(BLACK, WHITE);
 }
 
 void Action(String *menu) {
@@ -335,6 +336,12 @@ void Action(String *menu) {
         break;
       case 3: // Third talk
         printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
+        break;
+      case 9: // EXIT
+        CurrentItem = 0;
+        CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
+        currentMenu = menu_items;
+        PrintMenu(currentMenu);
         break;
       default:
         PrintMenu(currentMenu);

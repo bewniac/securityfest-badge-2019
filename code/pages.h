@@ -23,4 +23,4 @@ String startpage = "Security fest 2019\n"
           "## References\n"
           "1. Datasheet - https://www.elecrow.com/download/ESP-12F.pdf";
 
-String schedule[8] = { "08:30 - Opening", "09:00 - Dude where's my car", "10:00 - WTF Did you say", "11:00 - Foobar", "12:00 - Hurry up and buy", "13:00 - LUNCH", "14:00 - MORE LUNCH", "15:00 - BEER" };
+String schedule[9] = { "08:30 - Opening", "09:00 - Dude where's my car", "10:00 - WTF Did you say", "11:00 - Foobar", "12:00 - Hurry up and buy", "13:00 - LUNCH", "14:00 - MORE LUNCH", "15:00 - BEER", "Exit" };
