@@ -210,7 +210,7 @@ void PrintMenu(String *menu) {
       }
       bPressed = analogRead(ADC_Button);
       delay(150);
-      if (600 < bPressed) {
+      if (100 < bPressed) {
         display.display();
         display.setTextColor(BLACK, WHITE);
         return;
