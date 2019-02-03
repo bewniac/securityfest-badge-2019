@@ -47,9 +47,7 @@ void handleFiles() {
         SPIFFS.begin();
         String filename = httpServer.arg("file");
         filename.trim();
-        /*if (filename == "flag.txt") {
-          httpServer.send(200, "text/plain", "Not really so simple.");
-        }*/
+        
         File file = SPIFFS.open("/" + filename, "r");
         if (!file) {
           httpServer.send(200, "text/plain", "Error reading file.");
@@ -60,11 +58,7 @@ void handleFiles() {
             httpServer.send(200, "text/plain", "Here you go.");
           }
           if (httpServer.arg("type") == "txt") {
-            String fileContent = "";
-            for (int i = 0; i < file.size(); i++) {
-              fileContent += (char)file.read();
-            }
-            httpServer.send(200, "text/plain", fileContent);
+            httpServer.send(200, "text/plain", "Not implemented yet..");
           }
           else {
             httpServer.send(200, "text/plain", "Missing type");
