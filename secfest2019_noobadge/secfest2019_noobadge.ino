@@ -62,9 +62,9 @@ void handleFiles() {
         SPIFFS.begin();
         String filename = httpServer.arg("file");
         filename.trim();
-        /*if (filename == "flag.txt") {
+        if (filename == "flag.txt") {
           httpServer.send(200, "text/plain", "Not really so simple.");
-        }*/
+        }
         File file = SPIFFS.open("/" + filename, "r");
         if (!file) {
           httpServer.send(200, "text/plain", "Error reading file.");
@@ -128,7 +128,7 @@ void setup(void) {
   httpServer.on("/", handleRoot);
   httpServer.on("/filesystem", handleFiles);
   httpServer.begin();
-  //animateLogo();
+
   PrintMenu(CurrentMenu);
 }
 // Variables used for timing. Delay() sucks and break shit. 
