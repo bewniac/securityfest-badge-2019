@@ -1,44 +1,57 @@
 #include <ArduinoOTA.h>
-#include <ESP8266WiFi.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_PCD8544.h>
-#include "bitmaps.h"
-#include "pages.h"
-#include "snake.h"
-#include <FS.h>
+//https://arduino-esp8266.readthedocs.io/en/
 #include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266WebServer.h>
+#include <ESP8266WiFi.h>
+#include <FS.h>
+// https://github.com/bbx10/Adafruit-PCD8544-Nokia-5110-LCD-library
+#include <Adafruit_GFX.h>
+#include <Adafruit_PCD8544.h>
+// https://gitlab.com/painlessMesh/painlessMesh
+#include <painlessMesh.h>
+// My own shit
+#include "bitmaps.h"
+#include "snake.h"
 
-// GPIO14 - Serial clock out (SCLK)
-// GPIO13 - Serial data out (DIN)
-// GPIO12 - Data/Command select (D/C)
-// GPIO05 - LCD chip select (CS)
-// GPIO04 - LCD reset (RST)
+painlessMesh  mesh;
+void receivedCallback(uint32_t from, String & msg);
+void newConnectionCallback(uint32_t nodeId);
+
+/* 
+ * GPIO14 - Serial clock out (SCLK)
+ * GPIO13 - Serial data out (DIN)
+ * GPIO12 - Data/Command select (D/C)
+ * GPIO05 - LCD chip select (CS)
+ * GPIO04 - LCD reset (RST)
+ */
 Adafruit_PCD8544 display = Adafruit_PCD8544(14, 13, 12, 5, 4);
 
 int OUTPIN = 16; // GPIO16 - Free PIN
 int ADC_Button = A0; // ADC - Analog digital converter pin for buttons
 int LED = 2; // Onboard LED, LOW turns LED on for some reason.
 
-int maxRows = 6;
-String fs_menu[2] = {"List", "Exit"};
-String menu_items[8] = {"Logo", "Schedule" , "Files", "Snake", "Network", "Something", "Something", "Darkside"};
-String net_menu[3] = {"Network conf.", "Scan", "Exit"};
-String *currentMenu = menu_items;
-int CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
-int CurrentItem = 0;
-int bPressed = 0;
-
 // Web server and updater
 ESP8266WebServer httpServer(80);
 ESP8266HTTPUpdateServer httpUpdater;
 
+String macAddr = WiFi.softAPmacAddress().c_str();
+String ssid = "SECFEST_19";
+String passwd = "SECFEST_19";
+int maxRows = 6;
+String fs_menu[2] = {"List", "Exit"};
+String menu_items[5] = {"Logo", "Schedule" , "Files", "Snake", "Network"};
+String net_menu[3] = {"Network", "Scan", "Exit"};
+String *CurrentMenu = menu_items;
+String *networks_menu;
+int CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
+int CurrentItem = 0;
+int bPressed = 0;
+String schedule[9] = { "08:30 - Opening", "09:00 - Dude where's my car", "10:00 - WTF Did you say", "11:00 - Foobar", "12:00 - Hurry up and buy", "13:00 - LUNCH", "14:00 - MORE LUNCH", "15:00 - BEER", "Exit" };
+
 void handleRoot() {
-  httpServer.send(200, "text/plain", startpage);
+  httpServer.send(200, "text/plain", "");
 }
-void handleSchedule() {
-  httpServer.send(200, "text/html", schedule[0]);
-}
+
 void handleFiles() {
   if (httpServer.args() > 0) {
     if (httpServer.argName(0) == "file") {
@@ -82,8 +95,16 @@ void handleFiles() {
   }
 }
 
-String ssid = "SECFEST_19";
-String passwd = "SECFEST_19";
+
+// Needed for painless library
+void receivedCallback( uint32_t from, String &msg ) {
+  printLongText(msg.c_str());
+  Serial.println(msg.c_str());
+}
+
+void newConnectionCallback(uint32_t nodeId) {
+    Serial.printf("New Connection, nodeId = %u\n", nodeId);
+}
 
 void setup(void) {
   // Setting up buttons
@@ -95,90 +116,107 @@ void setup(void) {
   // Serial for debugging
   Serial.begin(115200);
 
-  /* WiFi Soft Accesspoint setup*/
-  boolean result = WiFi.softAP(ssid, passwd);
-  if (result) {
-    Serial.println("Success setting up AP");
-  }
-  else {
-    Serial.println("Failed setting up AP");
-  }
+  mesh.init(ssid, passwd);
+  mesh.onNewConnection(&newConnectionCallback);
+  mesh.onReceive(&receivedCallback);
+  
   // Display setup
-  display.begin(100);
+  display.begin(60);
   display.setTextSize(0);
 
   httpUpdater.setup(&httpServer);
   httpServer.on("/", handleRoot);
-  httpServer.on("/schedule", handleSchedule);
   httpServer.on("/filesystem", handleFiles);
   httpServer.begin();
   //animateLogo();
-  PrintMenu(currentMenu);
+  PrintMenu(CurrentMenu);
 }
+// Variables used for timing. Delay() sucks and break shit. 
+long lastTimeButton = 0;
+long buttonDelay = 150;
+bool scrolling = false;
+long lastTimeScrolling = 0;
+long scrollingDelay = 150;
+int scrollPos = 0;
+bool printingLongText = false;
+String textLeft = "";
 
+#define BUTTON_ADC 400
+#define LCD_MAX_CHARS 84
 void loop(void) {
-  // Need delay keep wifi running while reading ADC button. Somehow they dont work at the same time.
-  delay(100);
-  //Webserver client handle
-  httpServer.handleClient();
+  // Mesh update
+  mesh.update();
 
-  bPressed = analogRead(ADC_Button);
-  if (300 < bPressed) { // A button is pressed
-    if ( bPressed < 400 ) {  // Action button  
-      delay(60);
-      Action(currentMenu);
+  httpServer.handleClient();
+  
+  long timeButton = millis();
+  if ((timeButton - lastTimeButton) >= buttonDelay) {
+    lastTimeButton = timeButton;
+    bPressed = analogRead(ADC_Button);
+    buttonPress(bPressed);
+  }
+
+  // Scrolling text 
+  long timeScrolling = millis();
+  if ((timeScrolling - lastTimeScrolling) >= scrollingDelay) {
+    if (scrolling) {
+      display.setCursor(0, (8*(CurrentItem % 6)));
+      display.setTextColor(WHITE, BLACK);
+      for (int i=0; i<14; i++) {
+        display.print(CurrentMenu[CurrentItem][scrollPos+i]);
+      }
+      scrollPos++;
+      lastTimeScrolling = timeScrolling;
+      if (CurrentMenu[CurrentItem].length() == scrollPos) {
+          scrolling = false;
+          scrollPos = 0;
+      }
+      display.display();  
     }
-    if (400 < bPressed) { // Move button
-      //Serial.println(bPressed);
+  }
+  
+}
+void buttonPress(int button) {
+  if (100 < button) { // A button is pressed
+    // If button is pressed then we should restore scrollPos and stop scrolling.
+    scrollPos = 0;
+    scrolling = false;
+    if ( button < BUTTON_ADC ) {  // Action button
+      if (printingLongText) {
+        printLongText(textLeft);
+      } else {
+        Action(CurrentMenu);
+      }
+    }
+    if (BUTTON_ADC < button) { // Move button
       CurrentItem = ((CurrentItem + 1) % CurrentMenuSize);
-      delay(60);
-      PrintMenu(currentMenu);
+      PrintMenu(CurrentMenu);
     }
   }
 }
-void printLongText(String ltext) {
-  int maxChars = 84;
-  int pages = ltext.length()/maxChars;
-  int currentPage = 0;
+
+void printLongText(String text) {
+  printingLongText = true;
+  display.setTextColor(BLACK, WHITE);
   display.clearDisplay();
-  for (int i=0; i<maxChars+1; i++) {
-    display.print(ltext[i]);
+  if (text.length() > LCD_MAX_CHARS) {
+    textLeft = text.substring(84,text.length());
+    Serial.println(textLeft);
+    for (int i=0; i<LCD_MAX_CHARS; i++) {
+      display.print(text.substring(0,LCD_MAX_CHARS)[i]);
+    }
+  } else {
+    for (int i=0; i<text.length(); i++) {
+      display.print(text[i]);
+    }
+    printingLongText = false;
   }
   display.display();
-  while (currentPage <= pages) {
-    delay(50);
-    bPressed = analogRead(ADC_Button);
-    if (600 < bPressed) {
-      // Move button is pressed, change page
-      delay(60);
-      display.clearDisplay();
-      currentPage++;
-      int startChar = currentPage*maxChars;
-      if (ltext.length() < (startChar+84)) {
-        for (int i=startChar; i<ltext.length(); i++) {
-          if(ltext[startChar] == ' ') {
-            i = i+1;
-          }
-          display.print(ltext[i]);
-        } 
-      }
-      else {
-        for (int i=startChar; i<(startChar+84); i++) {
-          display.print(ltext[i]);
-        }
-      }
-      display.display();
-    }
-    
-  }
 }
-void printSchedule(void) {
-  //printLongText(text);
-}
+
 void PrintMenu(String *menu) {
   display.clearDisplay();
   int firstItem = CurrentItem - (CurrentItem%6);
-  
   for (int i = firstItem; i < CurrentMenuSize; i++) {
     if (CurrentItem == i) {
       display.setTextColor(WHITE, BLACK);
@@ -194,65 +232,48 @@ void PrintMenu(String *menu) {
       }
     }
   }
-  if (currentMenu == menu_items) {
+  if (CurrentMenu == menu_items) {
     display.drawBitmap(40, 0, logo, 48, 48, 1);
   }
   display.display();
-  if (14 < menu[CurrentItem].length()) {
-    int startChar = 0;
-    display.setTextColor(WHITE, BLACK);
-    while(14 < (menu[CurrentItem].length()-startChar)) {
-      display.setCursor(0, (8*(CurrentItem % 6)));
-      startChar++;
-      for (int c=startChar; c<(startChar+14); c++) {
-        
-        display.print(menu[CurrentItem][c]);
-      }
-      bPressed = analogRead(ADC_Button);
-      delay(150);
-      if (100 < bPressed) {
-        display.display();
-        display.setTextColor(BLACK, WHITE);
-        return;
-      }
-      display.display();
-    }   
+  if (13 < menu[CurrentItem].length()) {
+    scrolling = true;
   }
   display.display();
   display.setTextColor(BLACK, WHITE);
 }
 
 void Action(String *menu) {
-  if (currentMenu == menu_items) {
+  if (CurrentMenu == menu_items) {
     switch (CurrentItem) {
       case 0:
         printLogo();
         break;
       case 1:
         CurrentItem = 0;
-        currentMenu = schedule;
+        CurrentMenu = schedule;
         CurrentMenuSize = (sizeof(schedule) / sizeof(String));
-        PrintMenu(currentMenu);
+        PrintMenu(CurrentMenu);
         break;
       case 2:
         CurrentItem = 0;
-        currentMenu = fs_menu;
+        CurrentMenu = fs_menu;
         CurrentMenuSize = (sizeof(fs_menu) / sizeof(String));
-        PrintMenu(currentMenu);
+        PrintMenu(CurrentMenu);
         break;
       case 3:
         snake();
         break;
       case 4:
         CurrentItem = 0;
-        currentMenu = net_menu;
+        CurrentMenu = net_menu;
         CurrentMenuSize = (sizeof(net_menu) / sizeof(String));
-        PrintMenu(currentMenu);
+        PrintMenu(CurrentMenu);
         break;
       default:
-        PrintMenu(currentMenu);
+        PrintMenu(CurrentMenu);
     }
-  } else if (currentMenu == fs_menu) {
+  } else if (CurrentMenu == fs_menu) {
     File flag, f;
     Dir dir;
     String userInput;
@@ -287,13 +308,13 @@ void Action(String *menu) {
       case 1:
         CurrentItem = 0;
         CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
-        currentMenu = menu_items;
-        PrintMenu(currentMenu);
+        CurrentMenu = menu_items;
+        PrintMenu(CurrentMenu);
         break;
       default:
-        PrintMenu(currentMenu);
+        PrintMenu(CurrentMenu);
     }
-  } else if (currentMenu == net_menu) {
+  } else if (CurrentMenu == net_menu) {
     boolean result;
     switch (CurrentItem) {
       case 0:
@@ -313,60 +334,101 @@ void Action(String *menu) {
         else {
           Serial.println("Failed setting up AP");
         }
+        CurrentItem = 0;
+        CurrentMenuSize = sizeof(networks_menu);
+        CurrentMenu = networks_menu;
+        PrintMenu(CurrentMenu);
         break;
       case 2:
         CurrentItem = 0;
         CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
-        currentMenu = menu_items;
-        PrintMenu(currentMenu);
+        CurrentMenu = menu_items;
+        PrintMenu(CurrentMenu);
         break;
       default:
-        PrintMenu(currentMenu);
+        PrintMenu(CurrentMenu);
     }
-  } else if (currentMenu == schedule) {
+  } else if (CurrentMenu == networks_menu) {
+      switch(CurrentItem) {
+        case 3:
+          CurrentItem = 0;
+          CurrentMenuSize = (sizeof(net_menu) / sizeof(String));
+          CurrentMenu = net_menu;
+          PrintMenu(CurrentMenu);
+          break;
+        default:
+          PrintMenu(CurrentMenu);
+      }
+  } else if (CurrentMenu == schedule) {
+    String text = "Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.";
     switch(CurrentItem) {
       case 0: // Opening
-        printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
+        printLongText(text);        
         break;
       case 1: // Keynote
-        printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
+        printLongText(text);    
         break;
       case 2: // Second talk
-        printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
+        printLongText(text);       
         break;
       case 3: // Third talk
-        printLongText("Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.");
+        printLongText(text);
         break;
       case 8: // EXIT
         CurrentItem = 0;
         CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
-        currentMenu = menu_items;
-        PrintMenu(currentMenu);
+        CurrentMenu = menu_items;
+        PrintMenu(CurrentMenu);
         break;
       default:
-        PrintMenu(currentMenu);
+        PrintMenu(CurrentMenu);
     }
   }
 }
+
+
 void ScanNetwork() {
-  display.clearDisplay();
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
   int n = WiFi.scanNetworks();
-  for (int i = 0; i < n; i++) {
-    display.println(WiFi.SSID(i));
-  }
+  String encType = "";
+  display.clearDisplay();
+  display.printf("%d network(s) found\n", n);
   display.display();
-  
+  networks_menu = new String[n+1];
+  for (int i = 0; i < n; i++)
+  {
+    int et = WiFi.encryptionType(i);
+    if (et ==  ENC_TYPE_WEP) {
+      encType = "WEP";
+    } else if (et == ENC_TYPE_TKIP) {
+      encType = "WPA";
+    } else if (et == ENC_TYPE_CCMP) {
+      encType = "WPA2";
+    } else if (et == ENC_TYPE_NONE) {
+      encType = "Open";
+    }
+    networks_menu[i] = String(i + 1) + ": " + WiFi.SSID(i).c_str() + " Ch:" + WiFi.channel(i) + "(" + WiFi.RSSI(i) + "dBm) " + encType;
+  }
+  networks_menu[n] = "Exit";
 }
 void printNetwork(void) {
   display.clearDisplay();
-  display.println("SSID: " + ssid);
-  display.println("PSK: " + passwd);
-  display.println("IP: " + String(WiFi.softAPIP()));
+  display.println("SSID: \n" + ssid);
+  display.println("PSK: \n" + passwd);
+  display.println("IP: \n" + IPAddress_toString(WiFi.softAPIP()));
   display.display();
 }
-
+String IPAddress_toString(IPAddress ip) {
+  String IpAddress = "";
+  for (int i=0; i<4; i++) {
+    IpAddress += String(ip[i]);
+    if (i < 3) {
+      IpAddress += ".";
+    }
+  }
+  return IpAddress;
+}
 void snake(void) {
   Game g(ADC_Button);
   g.Run(display);
