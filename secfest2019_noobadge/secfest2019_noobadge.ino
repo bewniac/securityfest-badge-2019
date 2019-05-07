@@ -1,21 +1,23 @@
-#include <ArduinoOTA.h>
-//https://arduino-esp8266.readthedocs.io/en/
-#include <ESP8266HTTPUpdateServer.h>
+// https://arduino-esp8266.readthedocs.io/en/
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <FS.h>
-// https://github.com/bbx10/Adafruit-PCD8544-Nokia-5110-LCD-library
+// https://github.com/bbx10/Adafruit-PCD8544-Nokia-5110-LCD-library/tree/esp8266
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 // https://gitlab.com/painlessMesh/painlessMesh
 #include <painlessMesh.h>
-// My own shit
 #include "bitmaps.h"
 #include "snake.h"
 
+// Mesh 
 painlessMesh  mesh;
 void receivedCallback(uint32_t from, String & msg);
 void newConnectionCallback(uint32_t nodeId);
+
+
+// Web server
+ESP8266WebServer httpServer(80);
 
 /* 
  * GPIO14 - Serial clock out (SCLK)
@@ -26,20 +28,18 @@ void newConnectionCallback(uint32_t nodeId);
  */
 Adafruit_PCD8544 display = Adafruit_PCD8544(14, 13, 12, 5, 4);
 
+// Buttons and pins
 int OUTPIN = 16; // GPIO16 - Free PIN
 int ADC_Button = A0; // ADC - Analog digital converter pin for buttons
 int LED = 2; // Onboard LED, LOW turns LED on for some reason.
 
-// Web server and updater
-ESP8266WebServer httpServer(80);
-ESP8266HTTPUpdateServer httpUpdater;
-
+// Variables 
 String macAddr = WiFi.softAPmacAddress().c_str();
 String ssid = "SECFEST_19";
 String passwd = "SECFEST_19";
 int maxRows = 6;
 String fs_menu[2] = {"List", "Exit"};
-String menu_items[5] = {"Logo", "Schedule" , "Files", "Snake", "Network"};
+String menu_items[6] = {"Logo", "Schedule" , "Files", "Snake", "Network", "Secret"};
 String net_menu[3] = {"Network", "Scan", "Exit"};
 String *CurrentMenu = menu_items;
 String *networks_menu;
@@ -47,9 +47,32 @@ int CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
 int CurrentItem = 0;
 int bPressed = 0;
 String schedule[9] = { "08:30 - Opening", "09:00 - Dude where's my car", "10:00 - WTF Did you say", "11:00 - Foobar", "12:00 - Hurry up and buy", "13:00 - LUNCH", "14:00 - MORE LUNCH", "15:00 - BEER", "Exit" };
+String secret = "";
 
+// Used to catch messages on the mesh network.
+void receivedCallback( uint32_t from, String &msg ) {
+  String tmp = msg.c_str();
+  if (tmp.substring(0,7) == "secret:") {
+    secret = tmp.substring(7); 
+  } else {
+    // Implement screen turning black and white
+    printLongText(msg.c_str());
+  }
+}
+
+// Prints out new connections on serial
+void newConnectionCallback(uint32_t nodeId) {
+  Serial.printf("New Connection, nodeId = %u\n", nodeId);
+  /* Testing for master badge. Only master badge should send messages. 
+   * Send single message per new connection. 
+   * Implement to send a new part of the secret each time */
+  //String msg = "secret:1-83247671d6207372b47e5039ea2c1103356afe16238cb7e4a9bb3e0b0803858c3aa386";
+  //mesh.sendSingle(nodeId, msg);
+}
+
+// Web server handles
 void handleRoot() {
-  httpServer.send(200, "text/plain", "");
+  httpServer.send(200, "text/plain", "SSSSecret: " + secret);
 }
 
 void handleFiles() {
@@ -63,7 +86,9 @@ void handleFiles() {
         String filename = httpServer.arg("file");
         filename.trim();
         if (filename == "flag.txt") {
-          httpServer.send(200, "text/plain", "Not really so simple.");
+          if (!httpServer.authenticate("admin", "Securityfest2019Sup3rS3cuReP4$$w0rd")) { // REMOVE PASSWORD AFTER GOING PUBLIC BECAUSE SECURITY IS KEY
+            return httpServer.requestAuthentication();;
+          }
         }
         File file = SPIFFS.open("/" + filename, "r");
         if (!file) {
@@ -95,17 +120,6 @@ void handleFiles() {
   }
 }
 
-
-// Needed for painless library
-void receivedCallback( uint32_t from, String &msg ) {
-  printLongText(msg.c_str());
-  Serial.println(msg.c_str());
-}
-
-void newConnectionCallback(uint32_t nodeId) {
-    Serial.printf("New Connection, nodeId = %u\n", nodeId);
-}
-
 void setup(void) {
   // Setting up buttons
   pinMode(OUTPIN, OUTPUT);
@@ -124,12 +138,12 @@ void setup(void) {
   display.begin(60);
   display.setTextSize(0);
 
-  httpUpdater.setup(&httpServer);
+  // Web server
   httpServer.on("/", handleRoot);
   httpServer.on("/filesystem", handleFiles);
   httpServer.begin();
-
   PrintMenu(CurrentMenu);
+  
 }
 // Variables used for timing. Delay() sucks and break shit. 
 long lastTimeButton = 0;
@@ -147,6 +161,7 @@ void loop(void) {
   // Mesh update
   mesh.update();
 
+  // Listen for http requests
   httpServer.handleClient();
   
   long timeButton = millis();
@@ -270,6 +285,11 @@ void Action(String *menu) {
         CurrentMenuSize = (sizeof(net_menu) / sizeof(String));
         PrintMenu(CurrentMenu);
         break;
+      case 5:
+        display.clearDisplay();
+        display.print(secret);
+        display.display();
+        break;
       default:
         PrintMenu(CurrentMenu);
     }
@@ -390,13 +410,12 @@ void Action(String *menu) {
 void ScanNetwork() {
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
-  int n = WiFi.scanNetworks();
+  int numberOfNetworks = WiFi.scanNetworks();
   String encType = "";
   display.clearDisplay();
-  display.printf("%d network(s) found\n", n);
   display.display();
-  networks_menu = new String[n+1];
-  for (int i = 0; i < n; i++)
+  networks_menu = new String[numberOfNetworks+1];
+  for (int i = 0; i < numberOfNetworks; i++)
   {
     int et = WiFi.encryptionType(i);
     if (et ==  ENC_TYPE_WEP) {
@@ -410,7 +429,7 @@ void ScanNetwork() {
     }
     networks_menu[i] = String(i + 1) + ": " + WiFi.SSID(i).c_str() + " Ch:" + WiFi.channel(i) + "(" + WiFi.RSSI(i) + "dBm) " + encType;
   }
-  networks_menu[n] = "Exit";
+  networks_menu[numberOfNetworks] = "Exit";
 }
 void printNetwork(void) {
   display.clearDisplay();

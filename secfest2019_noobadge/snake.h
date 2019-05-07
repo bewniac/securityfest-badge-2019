@@ -239,7 +239,7 @@ class Game {
       while(1) {
         display.clearDisplay();
         int bPressed = analogRead(Button);
-        if (400 < bPressed) { 
+        if (100 < bPressed) { 
           if ( bPressed < 400 ) {  
             if (s->GetDirection() == UP) {
               s->SetDirection(MRIGHT);
@@ -255,7 +255,7 @@ class Game {
             }
             delay(100);
           }
-          if (bPressed < 400) { 
+          if (400 < bPressed) { 
             if (s->GetDirection() == UP) {
               s->SetDirection(MLEFT);
             }
