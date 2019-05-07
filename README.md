@@ -13,7 +13,7 @@ Simple enough. I built a prototype that could be powered by 5V micro USB. Althou
 
 ![First Prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/First_prototype.jpg)
 
-Not so pretty, I know. But it worked. But then I wanted to create my own PCB prototype, mainly with components I could solder by hand as I'm never done surface mount soldering myself. So I created my first schematic and PCB design in KiCAD. 
+Not so pretty, I know. But it worked. But then I wanted to create my own PCB prototype, mainly with components I could solder by hand as I've never done surface mount soldering myself. So I created my first schematic and PCB design in KiCAD. 
 
 ![Schematic prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Prototype1_schematic.png)
 ![PCB Prototype](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/PCB_Prototype1.png)
