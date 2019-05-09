@@ -1,5 +1,4 @@
 // https://arduino-esp8266.readthedocs.io/en/
-#include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <FS.h>
 // https://github.com/bbx10/Adafruit-PCD8544-Nokia-5110-LCD-library/tree/esp8266
@@ -14,29 +13,6 @@
 painlessMesh  mesh;
 void receivedCallback(uint32_t from, String & msg);
 void newConnectionCallback(uint32_t nodeId);
-String groups[50] = ["hexorbase", "waffit", "sulley", "edb", "owtf", "splint", "rlogin-scanner", "canari", "netbios-share-scanner", "rpdscan", "goodork", "btscanner", "tor-browser-en", "htshells", "nishang", "urlcrazy", "extracthosts", "zarp", "shellcodecs", "dnmap", "wireless-ids", "halcyon", "thc-smartbrute", "malwaredetect", "ircsnapshot", "spipscan", "dumpacl", "dirs3arch", "fuzzdb", "fs-nyarl", "padbuster", "tilt", "arduino", "netmap", "blueranger", "speedpwn", "grokevt", "acccheck", "hdmi-sniff", "snmpattack", "googlesub", "httpsniff", "snoopy-ng", "obfsproxy", "artillery", "hotpatch", "easy-creds", "crypthook", "inundator", "ctunnel"];
-int groupSize[50];
-int groupIndex = 0;
-String nodeSecrets[200][3];
-/*
-*   nodeSecrets[NodeIdIndex][0 = NodeId, 1=Group, 2=Secret]
-*   if groupSize[groupIndex] == 4 then groups[groupIndex] is full. groupIndex++
-*   secret:GROUPNAME:1-83247671d6207372b47e5039ea2c1103356afe16238cb7e4a9bb3e0b0803858c3aa386
-*/
-
-void initChallenge() {
-  for (int i=0; i<200; i++) {
-    for (int j=0; j<3; j++) {
-      nodeSecrets[i][j] = "";
-    }
-  }
-  for (int i=0; i<50; i++) {
-    groupSize[i] = 0;
-  }
-}
-
-// Web server
-ESP8266WebServer httpServer(80);
 
 /* 
  * GPIO14 - Serial clock out (SCLK)
@@ -47,105 +23,56 @@ ESP8266WebServer httpServer(80);
  */
 Adafruit_PCD8544 display = Adafruit_PCD8544(14, 13, 12, 5, 4);
 
-// Buttons and pins
-int OUTPIN = 16; // GPIO16 - Free PIN
-int ADC_Button = A0; // ADC - Analog digital converter pin for buttons
-int LED = 2; // Onboard LED, LOW turns LED on for some reason.
-
 // Variables 
 String macAddr = WiFi.softAPmacAddress().c_str();
 String ssid = "SECFEST_19";
 String passwd = "SECFEST_19";
 int maxRows = 6;
-String fs_menu[2] = {"List", "Exit"};
-String menu_items[6] = {"Logo", "Schedule" , "Files", "Snake", "Network", "Secret"};
+String menu_items[5] = {"Logo", "Schedule", "Snake", "Network", "Secret"};
 String net_menu[3] = {"Network", "Scan", "Exit"};
 String *CurrentMenu = menu_items;
 String *networks_menu;
 int CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
 int CurrentItem = 0;
 int bPressed = 0;
-String schedule[9] = { "08:30 - Opening", "09:00 - Dude where's my car", "10:00 - WTF Did you say", "11:00 - Foobar", "12:00 - Hurry up and buy", "13:00 - LUNCH", "14:00 - MORE LUNCH", "15:00 - BEER", "Exit" };
+String schedule[9] = { "08:30 - Registration", "09:00 - Welcome!", "09:20 - ", "11:20 - Foobar", "12:00 - Hurry up and buy", "13:00 - LUNCH", "14:00 - MORE LUNCH", "15:00 - BEER", "Exit" };
 String secret = "";
+String group = "";
 
 // Used to catch messages on the mesh network.
 void receivedCallback( uint32_t from, String &msg ) {
   String tmp = msg.c_str();
+  Serial.println(tmp.substring(0,6));
   if (tmp.substring(0,7) == "secret:") {
     secret = tmp.substring(7); 
   } else {
     // Implement screen turning black and white
+    blink();
     printLongText(msg.c_str());
   }
 }
-
+void blink() {
+  for (int i=0; i<10; i++) {
+    display.clearDisplay();
+    display.drawBitmap(0, 0, black, 0, 84, 1);
+    display.display();
+    delay(300);
+    display.clearDisplay();
+    display.drawBitmap(0, 0, white, 0, 84, 1);
+    display.display();
+  }
+  
+}
 // Prints out new connections on serial
 void newConnectionCallback(uint32_t nodeId) {
   Serial.printf("New Connection, nodeId = %u\n", nodeId);
-  /* Testing for master badge. Only master badge should send messages. 
-   * Send single message per new connection. 
-   * Implement to send a new part of the secret each time */
-  //String msg = "secret:1-83247671d6207372b47e5039ea2c1103356afe16238cb7e4a9bb3e0b0803858c3aa386";
-  //mesh.sendSingle(nodeId, msg);
 }
 
-// Web server handles
-void handleRoot() {
-  httpServer.send(200, "text/plain", "SSSSecret: " + secret);
-}
-
-void handleFiles() {
-  if (httpServer.args() > 0) {
-    if (httpServer.argName(0) == "file") {
-      if (httpServer.arg("file") == "") {
-        httpServer.send(200, "text/plain", "Missing file.");
-      }
-      else {
-        SPIFFS.begin();
-        String filename = httpServer.arg("file");
-        filename.trim();
-        if (filename == "flag.txt") {
-          if (!httpServer.authenticate("admin", "Securityfest2019Sup3rS3cuReP4$$w0rd")) { // REMOVE PASSWORD AFTER GOING PUBLIC BECAUSE SECURITY IS KEY
-            return httpServer.requestAuthentication();;
-          }
-        }
-        File file = SPIFFS.open("/" + filename, "r");
-        if (!file) {
-          httpServer.send(200, "text/plain", "Error reading file.");
-        }
-        else {
-          if (httpServer.arg("type") == "jpg") {
-            httpServer.streamFile(file, "image/jpeg");
-            httpServer.send(200, "text/plain", "Here you go.");
-          }
-          if (httpServer.arg("type") == "txt") {
-            String fileContent = "";
-            for (int i = 0; i < file.size(); i++) {
-              fileContent += (char)file.read();
-            }
-            httpServer.send(200, "text/plain", fileContent);
-          }
-          else {
-            httpServer.send(200, "text/plain", "Missing type");
-          }
-        }
-      }
-    }
-    else {
-      httpServer.send(200, "text/plain", "Unknown parameter.");
-    }
-  } else {
-    httpServer.send(200, "text/plain", "Directory / \n" + getFiles());
-  }
-}
+int ADC_Button = A0; // ADC - Analog digital converter pin for buttons
 
 void setup(void) {
-  // Setting up buttons
-  pinMode(OUTPIN, OUTPUT);
   pinMode(ADC_Button, INPUT);
-  pinMode(LED, OUTPUT);
-  digitalWrite(LED, HIGH); // Turn LED off.
-
+  
   // Serial for debugging
   Serial.begin(115200);
 
@@ -157,13 +84,9 @@ void setup(void) {
   display.begin(60);
   display.setTextSize(0);
 
-  // Web server
-  httpServer.on("/", handleRoot);
-  httpServer.on("/filesystem", handleFiles);
-  httpServer.begin();
   PrintMenu(CurrentMenu);
-  
 }
+
 // Variables used for timing. Delay() sucks and break shit. 
 long lastTimeButton = 0;
 long buttonDelay = 150;
@@ -179,9 +102,6 @@ String textLeft = "";
 void loop(void) {
   // Mesh update
   mesh.update();
-
-  // Listen for http requests
-  httpServer.handleClient();
   
   long timeButton = millis();
   if ((timeButton - lastTimeButton) >= buttonDelay) {
@@ -290,65 +210,16 @@ void Action(String *menu) {
         PrintMenu(CurrentMenu);
         break;
       case 2:
-        CurrentItem = 0;
-        CurrentMenu = fs_menu;
-        CurrentMenuSize = (sizeof(fs_menu) / sizeof(String));
-        PrintMenu(CurrentMenu);
-        break;
-      case 3:
         snake();
         break;
-      case 4:
+      case 3:
         CurrentItem = 0;
         CurrentMenu = net_menu;
         CurrentMenuSize = (sizeof(net_menu) / sizeof(String));
         PrintMenu(CurrentMenu);
         break;
-      case 5:
-        display.clearDisplay();
-        display.print(secret);
-        display.display();
-        break;
-      default:
-        PrintMenu(CurrentMenu);
-    }
-  } else if (CurrentMenu == fs_menu) {
-    File flag, f;
-    Dir dir;
-    String userInput;
-    switch (CurrentItem) {
-      case 0:
-        SPIFFS.begin();
-        // Present list of files on FS
-        display.clearDisplay();
-        dir = SPIFFS.openDir("/");
-        display.println("Filename");
-        while (dir.next()) {
-          display.print(dir.fileName() + "\n");
-        }
-        display.display();
-        if (Serial.available()) {
-          while (Serial.available() > 0) {
-            userInput += char(Serial.read());
-
-          }
-          userInput.trim();
-          flag = SPIFFS.open(userInput, "r");
-          if (!flag) {
-            Serial.println("ERROR: Can't open file");
-          }
-          Serial.println("----- CONTENT -----");
-          for (int i = 0; i < flag.size(); i++) {
-            Serial.print((char)flag.read());
-          }
-          Serial.println("\n----- CONTENT -----");
-        }
-        break;
-      case 1:
-        CurrentItem = 0;
-        CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
-        CurrentMenu = menu_items;
-        PrintMenu(CurrentMenu);
+      case 4:
+        printLongText(secret);
         break;
       default:
         PrintMenu(CurrentMenu);
@@ -485,14 +356,4 @@ void animateLogo(void) {
     display.display();
     delay(50);
   }
-}
-
-String getFiles() {
-  SPIFFS.begin();
-  Dir dir = SPIFFS.openDir("/");
-  String fileList = "";
-  while (dir.next()) {
-    fileList += dir.fileName() + "\n";
-  }
-  return fileList;
 }
