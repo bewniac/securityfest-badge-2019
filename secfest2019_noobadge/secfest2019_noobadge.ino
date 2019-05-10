@@ -35,7 +35,7 @@ String *networks_menu;
 int CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
 int CurrentItem = 0;
 int bPressed = 0;
-String schedule[9] = { "08:30 - Registration", "09:00 - Welcome!", "09:20 - ", "11:20 - Foobar", "12:00 - Hurry up and buy", "13:00 - LUNCH", "14:00 - MORE LUNCH", "15:00 - BEER", "Exit" };
+const char* schedule[25] = {"-- MAY 23 --", "08:30 Registration and breakfast", "09:00 Hello and welcome", "09:20 Shira Shamban", "10:20 Christoffer Jerkeby", "11:20 Olle Segerdahl", "12:30 Lunch", "13:30 Hugo Hirsh", "14:30 Csaba Fitzl", "15:20 Coffee break", "15:45 Alex Inführ", "16:45 Samit Anwer", "17:45 Calle Svensson", "19:45 Dinner, drinks and awards", "21:45 After party!", "-- MAY 24 --", "08:30 Breakfast", "09:00 Dave Lewis", "10:15 David Fiser", "11:30 Dennis Kolegov", "12:30 Lunch", "13:30 Hanno Böck", "14:45 Himanshu Mehta", "15:45 Mazin Ahmed", "16:45 Goodbye <3"};
 String secret = "";
 String group = "";
 
