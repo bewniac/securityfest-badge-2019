@@ -41,10 +41,8 @@ String group = "";
 
 // Used to catch messages on the mesh network.
 void receivedCallback( uint32_t from, String &msg ) {
-  String tmp = msg.c_str();
-  Serial.println(tmp.substring(0,6));
-  if (tmp.substring(0,7) == "secret:") {
-    secret = tmp.substring(7); 
+  if (msg.startsWith("secret:")) {
+    secret = msg.substring(7); 
   } else {
     // Implement screen turning black and white
     blink();
