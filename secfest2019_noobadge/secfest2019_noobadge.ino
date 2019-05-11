@@ -53,7 +53,34 @@ String *networks_menu;
 int CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
 int CurrentItem = 0;
 int bPressed = 0;
-String schedule[26] = {"-- MAY 23 --", "08:30 Registration and breakfast", "09:00 Hello and welcome", "09:20 Shira Shamban", "10:20 Christoffer Jerkeby", "11:20 Olle Segerdahl", "12:30 Lunch", "13:30 Hugo Hirsh", "14:30 Csaba Fitzl", "15:20 Coffee break", "15:45 Alex Inführ", "16:45 Samit Anwer", "17:45 Calle Svensson", "19:45 Dinner, drinks and awards", "21:45 After party!", "-- MAY 24 --", "08:30 Breakfast", "09:00 Dave Lewis", "10:15 David Fiser", "11:30 Dennis Kolegov", "12:30 Lunch", "13:30 Hanno Böck", "14:45 Himanshu Mehta", "15:45 Mazin Ahmed", "16:45 Goodbye <3", "Exit."};
+String schedule[26] = {
+  "-- MAY 23 --", 
+  "08:30 Registration and breakfast", 
+  "09:00 Hello and welcome", 
+  "09:20 Shira Shamban - Your internet is down? It’s cyber warfare, stupid", 
+  "10:20 Christoffer Jerkeby - Load Balancer with RCE, Hacking F5", 
+  "11:20 Olle Segerdahl - DOMXSS is not Dead", 
+  "12:30 Lunch", 
+  "13:30 Hugo Hirsh - Trust and Sugar", 
+  "14:30 Csaba Fitzl - macOS - Gaining root with Harmless AppStore Apps", 
+  "15:20 Coffee break", 
+  "15:45 Alex Inführ - Exploring Macros in (Open|Libre)office - Why you should care", 
+  "16:45 Samit Anwer - Oh! Auth: Implementation pitfalls of OAuth 2.0 & the Auth Providers who have fell in it", 
+  "17:45 Calle Svensson - Software Obfuscation with LLVM", 
+  "19:45 Dinner, drinks and awards", 
+  "21:45 After party!", 
+  "-- MAY 24 --", 
+  "08:30 Breakfast", 
+  "09:00 Dave Lewis - Zero Trust & The Flaming Sword of Justice!", 
+  "10:15 David Fiser - Falling Out of the Sky: Security Risks that can Bring Your Cloud Down to the Ground", 
+  "11:30 Dennis Kolegov - A dive in to SD-WAN Insecure Designs and Vulnerabilities", 
+  "12:30 Lunch", 
+  "13:30 Hanno Böck - Don't Sniff the MIME", 
+  "14:45 Himanshu Mehta - RF Exploitation: Demystifying IoT/OT hacks with SDR", 
+  "15:45 Mazin Ahmed - Practical Approaches for Testing and Breaking JWT Authentication", 
+  "16:45 Goodbye <3", 
+  "Exit."};
+  
 String secret = "UNSET";
 uint32_t masterNode = 3157003985;
 
