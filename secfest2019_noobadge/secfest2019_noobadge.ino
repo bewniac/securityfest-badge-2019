@@ -1,5 +1,6 @@
 // https://arduino-esp8266.readthedocs.io/en/
 #include <ESP8266WiFi.h>
+#include <ArduinoOTA.h>
 #include <FS.h>
 // https://github.com/bbx10/Adafruit-PCD8544-Nokia-5110-LCD-library/tree/esp8266
 #include <Adafruit_GFX.h>
@@ -9,24 +10,41 @@
 #include "bitmaps.h"
 #include "snake.h"
 
-// Mesh 
+#define   MESH_PREFIX     "SECFEST_19"
+#define   MESH_PASSWORD   "SECFEST_19_PSK"
+#define   MESH_PORT       5555
+
+#define BUTTON_ADC 400
+#define LCD_MAX_CHARS 84
+
+// Mesh
 painlessMesh  mesh;
 void receivedCallback(uint32_t from, String & msg);
 void newConnectionCallback(uint32_t nodeId);
 
-/* 
- * GPIO14 - Serial clock out (SCLK)
- * GPIO13 - Serial data out (DIN)
- * GPIO12 - Data/Command select (D/C)
- * GPIO05 - LCD chip select (CS)
- * GPIO04 - LCD reset (RST)
- */
+/*
+   GPIO14 - Serial clock out (SCLK)
+   GPIO13 - Serial data out (DIN)
+   GPIO12 - Data/Command select (D/C)
+   GPIO05 - LCD chip select (CS)
+   GPIO04 - LCD reset (RST)
+*/
 Adafruit_PCD8544 display = Adafruit_PCD8544(14, 13, 12, 5, 4);
 
-// Variables 
+// Variables
+
+// Variables used for timing. Delay() sucks and break shit.
+long lastTimeButton = 0;
+long buttonDelay = 150;
+long secretDelay = 10000;
+long lastTimeSecret = 0;
+bool scrolling = false;
+long lastTimeScrolling = 0;
+long scrollingDelay = 150;
+int scrollPos = 0;
+bool printingLongText = false;
+String textLeft = "";
 String macAddr = WiFi.softAPmacAddress().c_str();
-String ssid = "SECFEST_19";
-String passwd = "SECFEST_19";
 int maxRows = 6;
 String menu_items[5] = {"Logo", "Schedule", "Snake", "Network", "Secret"};
 String net_menu[3] = {"Network", "Scan", "Exit"};
@@ -35,49 +53,35 @@ String *networks_menu;
 int CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
 int CurrentItem = 0;
 int bPressed = 0;
-const char* schedule[25] = {"-- MAY 23 --", "08:30 Registration and breakfast", "09:00 Hello and welcome", "09:20 Shira Shamban", "10:20 Christoffer Jerkeby", "11:20 Olle Segerdahl", "12:30 Lunch", "13:30 Hugo Hirsh", "14:30 Csaba Fitzl", "15:20 Coffee break", "15:45 Alex Inführ", "16:45 Samit Anwer", "17:45 Calle Svensson", "19:45 Dinner, drinks and awards", "21:45 After party!", "-- MAY 24 --", "08:30 Breakfast", "09:00 Dave Lewis", "10:15 David Fiser", "11:30 Dennis Kolegov", "12:30 Lunch", "13:30 Hanno Böck", "14:45 Himanshu Mehta", "15:45 Mazin Ahmed", "16:45 Goodbye <3"};
-String secret = "";
-String group = "";
+String schedule[26] = {"-- MAY 23 --", "08:30 Registration and breakfast", "09:00 Hello and welcome", "09:20 Shira Shamban", "10:20 Christoffer Jerkeby", "11:20 Olle Segerdahl", "12:30 Lunch", "13:30 Hugo Hirsh", "14:30 Csaba Fitzl", "15:20 Coffee break", "15:45 Alex Inführ", "16:45 Samit Anwer", "17:45 Calle Svensson", "19:45 Dinner, drinks and awards", "21:45 After party!", "-- MAY 24 --", "08:30 Breakfast", "09:00 Dave Lewis", "10:15 David Fiser", "11:30 Dennis Kolegov", "12:30 Lunch", "13:30 Hanno Böck", "14:45 Himanshu Mehta", "15:45 Mazin Ahmed", "16:45 Goodbye <3", "Exit."};
+String secret = "UNSET";
+uint32_t masterNode = 3157003985;
 
 // Used to catch messages on the mesh network.
 void receivedCallback( uint32_t from, String &msg ) {
-  if (msg.startsWith("secret:")) {
-    secret = msg.substring(7); 
+  String recv = msg;
+  if (recv.startsWith("secret:")) {
+    secret = recv;
+    printLongText(secret);
   } else {
-    // Implement screen turning black and white
-    blink();
-    printLongText(msg.c_str());
+    printLongText(msg);
   }
-}
-void blink() {
-  for (int i=0; i<10; i++) {
-    display.clearDisplay();
-    display.drawBitmap(0, 0, black, 0, 84, 1);
-    display.display();
-    delay(300);
-    display.clearDisplay();
-    display.drawBitmap(0, 0, white, 0, 84, 1);
-    display.display();
-  }
-  
-}
-// Prints out new connections on serial
-void newConnectionCallback(uint32_t nodeId) {
-  Serial.printf("New Connection, nodeId = %u\n", nodeId);
 }
 
 int ADC_Button = A0; // ADC - Analog digital converter pin for buttons
 
 void setup(void) {
   pinMode(ADC_Button, INPUT);
-  
+
   // Serial for debugging
   Serial.begin(115200);
-
-  mesh.init(ssid, passwd);
-  mesh.onNewConnection(&newConnectionCallback);
+  Serial.println();
+  Serial.println("N00badge v0.1");
+  mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT);
+  mesh.setDebugMsgTypes( ERROR | COMMUNICATION );
   mesh.onReceive(&receivedCallback);
-  
+  mesh.setContainsRoot();
+
   // Display setup
   display.begin(60);
   display.setTextSize(0);
@@ -85,22 +89,19 @@ void setup(void) {
   PrintMenu(CurrentMenu);
 }
 
-// Variables used for timing. Delay() sucks and break shit. 
-long lastTimeButton = 0;
-long buttonDelay = 150;
-bool scrolling = false;
-long lastTimeScrolling = 0;
-long scrollingDelay = 150;
-int scrollPos = 0;
-bool printingLongText = false;
-String textLeft = "";
-
-#define BUTTON_ADC 400
-#define LCD_MAX_CHARS 84
 void loop(void) {
   // Mesh update
   mesh.update();
-  
+
+  long timeSecret = millis();
+  if ((timeSecret - lastTimeSecret) >= secretDelay) {
+    lastTimeSecret = timeSecret;
+    if (secret == "UNSET") {
+      String msg = "giveme";
+      mesh.sendSingle(masterNode, msg);
+    }
+  }
+
   long timeButton = millis();
   if ((timeButton - lastTimeButton) >= buttonDelay) {
     lastTimeButton = timeButton;
@@ -108,25 +109,25 @@ void loop(void) {
     buttonPress(bPressed);
   }
 
-  // Scrolling text 
+  // Scrolling text
   long timeScrolling = millis();
   if ((timeScrolling - lastTimeScrolling) >= scrollingDelay) {
     if (scrolling) {
-      display.setCursor(0, (8*(CurrentItem % 6)));
+      display.setCursor(0, (8 * (CurrentItem % 6)));
       display.setTextColor(WHITE, BLACK);
-      for (int i=0; i<14; i++) {
-        display.print(CurrentMenu[CurrentItem][scrollPos+i]);
+      for (int i = 0; i < 14; i++) {
+        display.print(CurrentMenu[CurrentItem][scrollPos + i]);
       }
       scrollPos++;
       lastTimeScrolling = timeScrolling;
       if (CurrentMenu[CurrentItem].length() == scrollPos) {
-          scrolling = false;
-          scrollPos = 0;
+        scrolling = false;
+        scrollPos = 0;
       }
-      display.display();  
+      display.display();
     }
   }
-  
+
 }
 void buttonPress(int button) {
   if (100 < button) { // A button is pressed
@@ -152,13 +153,13 @@ void printLongText(String text) {
   display.setTextColor(BLACK, WHITE);
   display.clearDisplay();
   if (text.length() > LCD_MAX_CHARS) {
-    textLeft = text.substring(84,text.length());
-    Serial.println(textLeft);
-    for (int i=0; i<LCD_MAX_CHARS; i++) {
-      display.print(text.substring(0,LCD_MAX_CHARS)[i]);
-    }
+    textLeft = text.substring(84, text.length());
+    String line = text.substring(0, LCD_MAX_CHARS);
+    line.trim();
+    display.print(line);
+
   } else {
-    for (int i=0; i<text.length(); i++) {
+    for (int i = 0; i < text.length(); i++) {
       display.print(text[i]);
     }
     printingLongText = false;
@@ -168,7 +169,7 @@ void printLongText(String text) {
 
 void PrintMenu(String *menu) {
   display.clearDisplay();
-  int firstItem = CurrentItem - (CurrentItem%6);
+  int firstItem = CurrentItem - (CurrentItem % 6);
   for (int i = firstItem; i < CurrentMenuSize; i++) {
     if (CurrentItem == i) {
       display.setTextColor(WHITE, BLACK);
@@ -179,7 +180,7 @@ void PrintMenu(String *menu) {
       display.println(menu[i]);
     }
     else {
-      for (int c=0; c<14; c++) {
+      for (int c = 0; c < 14; c++) {
         display.print(menu[i][c]);
       }
     }
@@ -235,7 +236,7 @@ void Action(String *menu) {
         ScanNetwork();
         /* When scanning is complete create a access point once more */
         WiFi.mode(WIFI_AP);
-        result = WiFi.softAP(ssid, passwd);
+        result = WiFi.softAP(MESH_PREFIX, MESH_PASSWORD);
         if (result) {
           Serial.println("Success setting up AP");
         }
@@ -257,32 +258,19 @@ void Action(String *menu) {
         PrintMenu(CurrentMenu);
     }
   } else if (CurrentMenu == networks_menu) {
-      switch(CurrentItem) {
-        case 3:
-          CurrentItem = 0;
-          CurrentMenuSize = (sizeof(net_menu) / sizeof(String));
-          CurrentMenu = net_menu;
-          PrintMenu(CurrentMenu);
-          break;
-        default:
-          PrintMenu(CurrentMenu);
-      }
+    switch (CurrentItem) {
+      case 3:
+        CurrentItem = 0;
+        CurrentMenuSize = (sizeof(net_menu) / sizeof(String));
+        CurrentMenu = net_menu;
+        PrintMenu(CurrentMenu);
+        break;
+      default:
+        PrintMenu(CurrentMenu);
+    }
   } else if (CurrentMenu == schedule) {
-    String text = "Now Johan will open the conference and say hello to everyone. He will tell you a bunch of jokes and all will be fine and dandy. Love you all.";
-    switch(CurrentItem) {
-      case 0: // Opening
-        printLongText(text);        
-        break;
-      case 1: // Keynote
-        printLongText(text);    
-        break;
-      case 2: // Second talk
-        printLongText(text);       
-        break;
-      case 3: // Third talk
-        printLongText(text);
-        break;
-      case 8: // EXIT
+    switch (CurrentItem) {
+      case 25: // EXIT
         CurrentItem = 0;
         CurrentMenuSize = (sizeof(menu_items) / sizeof(String));
         CurrentMenu = menu_items;
@@ -302,7 +290,7 @@ void ScanNetwork() {
   String encType = "";
   display.clearDisplay();
   display.display();
-  networks_menu = new String[numberOfNetworks+1];
+  networks_menu = new String[numberOfNetworks + 1];
   for (int i = 0; i < numberOfNetworks; i++)
   {
     int et = WiFi.encryptionType(i);
@@ -321,14 +309,14 @@ void ScanNetwork() {
 }
 void printNetwork(void) {
   display.clearDisplay();
-  display.println("SSID: \n" + ssid);
-  display.println("PSK: \n" + passwd);
-  display.println("IP: \n" + IPAddress_toString(WiFi.softAPIP()));
+  display.println(MESH_PREFIX);
+  display.println(MESH_PASSWORD);
+  display.println(IPAddress_toString(WiFi.softAPIP()));
   display.display();
 }
 String IPAddress_toString(IPAddress ip) {
   String IpAddress = "";
-  for (int i=0; i<4; i++) {
+  for (int i = 0; i < 4; i++) {
     IpAddress += String(ip[i]);
     if (i < 3) {
       IpAddress += ".";
