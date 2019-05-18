@@ -1,6 +1,6 @@
-// https://arduino-esp8266.readthedocs.io/en/
+ // https://arduino-esp8266.readthedocs.io/en/
 #include <ESP8266WiFi.h>
-#include <ArduinoOTA.h>
+#include <ArduinoOTA.h> 
 #include <FS.h>
 // https://github.com/bbx10/Adafruit-PCD8544-Nokia-5110-LCD-library/tree/esp8266
 #include <Adafruit_GFX.h>
@@ -112,7 +112,7 @@ void setup(void) {
   // Display setup
   display.begin(60);
   display.setTextSize(0);
-
+  
   PrintMenu(CurrentMenu);
 }
 
@@ -309,7 +309,6 @@ void Action(String *menu) {
   }
 }
 
-
 void ScanNetwork() {
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
@@ -360,13 +359,4 @@ void printLogo(void) {
   display.clearDisplay();
   display.drawBitmap(18, 0, logo, 48, 48, 1);
   display.display();
-}
-
-void animateLogo(void) {
-  for (int i = -48; i < 85; i++) {
-    display.clearDisplay();
-    display.drawBitmap(i, 0, logo, 48, 48, 1);
-    display.display();
-    delay(50);
-  }
 }

@@ -21,17 +21,12 @@ int groupNr = 0;
 int nrOfSecrets = 0;
 
 const char* filename = "/nodes";
-/*
-    nodeSecrets[NodeIdIndex][0 = NodeId, 1=Group, 2=Secret]
-    if groupSize[groupIndex] == 4 then groups[groupIndex] is full. groupIndex++
-    secret:GROUPNAME:1-83247671d6207372b47e5039ea2c1103356afe16238cb7e4a9bb3e0b0803858c3aa386
-*/
 
 int getSecretIndex(char nodeId[]) {
   for (int i = 0; i < nrOfSecrets; i++) {
     if (strcmp(nodeId, nodeSecrets[i][0]) == 0) {
       /* Node exists */
-      Serial.println("Node exists");
+      //Serial.println("Node exists");
       return i;
     }
   }
@@ -40,35 +35,35 @@ int getSecretIndex(char nodeId[]) {
     if (SPIFFS.exists(filename)) {
       File file = SPIFFS.open(filename, "a");
       if (!file) {
-        Serial.println("Failed open file");
+        Serial.println("ERROR: Failed open file");
       }
       else {
-        Serial.println("Appending node to file");
+        //Serial.println("Appending node to file");
         file.println(nodeId);
         file.close();
         strncpy(nodeSecrets[nrOfSecrets][0], nodeId, 11);
         nrOfSecrets++;
-        Serial.print("Number of secrets: ");
-        Serial.println(nrOfSecrets);
+        /*Serial.print("Number of secrets: ");
+        Serial.println(nrOfSecrets);*/
         return nrOfSecrets-1;
       } 
-      file.close();
+      
     } else {
       File file = SPIFFS.open(filename, "w");
       if (!file) {
-        Serial.println("Failed open file");
+        Serial.println("ERROR: Failed open file");
       }
       else {
-        Serial.println("Writing node to file");
+        //Serial.println("Writing node to file");
         file.println(nodeId);
         file.close();
         strncpy(nodeSecrets[nrOfSecrets][0], nodeId, 11);
         nrOfSecrets++;
-        Serial.print("Number of secrets: ");
-        Serial.println(nrOfSecrets);
+        /*Serial.print("Number of secrets: ");
+        Serial.println(nrOfSecrets);*/
         return nrOfSecrets-1;
       } 
-      file.close();
+      
     }
   } else {
     Serial.println("MORE THAN 200 NODES! WHAT IS THIS!");
@@ -174,32 +169,26 @@ void setup(void) {
   mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT);
   mesh.onNewConnection(&newConnectionCallback);
   mesh.onReceive(&receivedCallback);
-  mesh.setRoot();
+  mesh.setRoot(true);
+  mesh.setContainsRoot(true);
 
-  for (int i = 0; i < 4; i++) {
-    nodeSecrets[i][0] = new char[11];
-    nodeSecrets[i][1] = new char[3];
-    sprintf(nodeSecrets[i][1], "%02d", groupNr);
-    nodeSecrets[i][1][3] = '\0';
-    nodeSecrets[i][2] = secrets[i];
-  }
-  groupNr++;
-  for (int i = 4; i < MAX_NODES; i++) {
-    nodeSecrets[i][0] = new char[11];
-    nodeSecrets[i][1] = new char[3];
-    sprintf(nodeSecrets[i][1], "%02d", groupNr);
-    nodeSecrets[i][1][3] = '\0';
-    if ((groupNr % 4) == 0) {
-      groupNr++;
+  for (int i = 0; i < MAX_NODES; i++) {
+    for (int j=0; j<4; j++) {
+      nodeSecrets[i+j][0] = new char[11];
+      nodeSecrets[i+j][1] = new char[3];
+      sprintf(nodeSecrets[i+j][1], "%02d", groupNr);
+      nodeSecrets[i+j][1][3] = '\0';
+      nodeSecrets[i+j][2] = secrets[i+j];
     }
-    nodeSecrets[i][2] = secrets[i];
+    i += 3;
+    groupNr++;
   }
 
   if (SPIFFS.begin()) {
-    Serial.println("SPIFFS works!");
+    Serial.println("SPIFFS initialized.");
   }
   else {
-    Serial.println("SPIFFS failed!");
+    Serial.println("ERROR: SPIFFS failed.");
   }
 
   File file = SPIFFS.open(filename, "r");
@@ -209,10 +198,10 @@ void setup(void) {
       line.trim();
       strncpy(nodeSecrets[nrOfSecrets][0], line.c_str(), 11);
       nodeSecrets[nrOfSecrets][0][11] = '\0';
-      Serial.print("Node in file: ");
+      /*Serial.print("Node in file: ");
       Serial.print(nodeSecrets[nrOfSecrets][0]);
       Serial.print(" at position: ");
-      Serial.println(nrOfSecrets);
+      Serial.println(nrOfSecrets);*/
       nrOfSecrets++;
     }
     file.close();
