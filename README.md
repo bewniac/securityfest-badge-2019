@@ -38,7 +38,7 @@ And the final PCB design:
 
 (Several month after, when we finally got the finished assembled PCB:s from seeedstudio)
 
-F\*ck. Look at the through-holes for TX/RX. They're placed on top of the ESP-12S module. This is my fault, I'm sorry everybody. I've changed it in the PCB design now, but all your badges include that specific flaw. Also, I used a resistor connected to GPIO00 with a two much resistance. So you can't get the voltage low enough to get the system in flash mode (it stays in 1,4-1,7 V). Either bridge the connection or use a 1k resistor instead. Sorry about that. 
+F\*ck. Look at the through-holes for TX/RX. They're placed on top of the ESP-12S module. This is my fault, I'm sorry everybody. I've changed it in the PCB design now, but all your badges include that specific flaw. Also, I used a resistor connected to GPIO00 with a too much resistance. So you can't get the voltage low enough to get the system in flash mode (it stays in 1,4-1,7 V). Either bridge the connection or use a 1k resistor instead. Sorry about that. 
 
 Schematic and PCB with fixed issues.
 
