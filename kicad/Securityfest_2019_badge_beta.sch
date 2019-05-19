@@ -7,7 +7,7 @@ encoding utf-8
 Sheet 1 1
 Title "Security fest 2019 Badge"
 Date "2018-12-05"
-Rev "1.0"
+Rev "2.0"
 Comp "Security fest"
 Comment1 ""
 Comment2 ""
@@ -551,7 +551,7 @@ L Device:R R14
 U 1 1 5C0B6BE7
 P 9750 5100
 F 0 "R14" V 9750 5000 50  0001 L CNN
-F 1 "10k" V 9750 5050 50  0000 L CNN
+F 1 "1k" V 9750 5050 50  0000 L CNN
 F 2 "Resistors_SMD:R_0603_HandSoldering" V 9680 5100 50  0001 C CNN
 F 3 "~" H 9750 5100 50  0001 C CNN
 	1    9750 5100

@@ -11,10 +11,29 @@
 #include "snake.h"
 
 // Mesh 
-painlessMesh  mesh;
+painlessMesh  mesh; 
 void receivedCallback(uint32_t from, String & msg);
 void newConnectionCallback(uint32_t nodeId);
+String groups[50] = ["hexorbase", "waffit", "sulley", "edb", "owtf", "splint", "rlogin-scanner", "canari", "netbios-share-scanner", "rpdscan", "goodork", "btscanner", "tor-browser-en", "htshells", "nishang", "urlcrazy", "extracthosts", "zarp", "shellcodecs", "dnmap", "wireless-ids", "halcyon", "thc-smartbrute", "malwaredetect", "ircsnapshot", "spipscan", "dumpacl", "dirs3arch", "fuzzdb", "fs-nyarl", "padbuster", "tilt", "arduino", "netmap", "blueranger", "speedpwn", "grokevt", "acccheck", "hdmi-sniff", "snmpattack", "googlesub", "httpsniff", "snoopy-ng", "obfsproxy", "artillery", "hotpatch", "easy-creds", "crypthook", "inundator", "ctunnel"];
+int groupSize[50];
+int groupIndex = 0;
+String nodeSecrets[200][3];
+/*
+*   nodeSecrets[NodeIdIndex][0 = NodeId, 1=Group, 2=Secret]
+*   if groupSize[groupIndex] == 4 then groups[groupIndex] is full. groupIndex++
+*   secret:GROUPNAME:1-83247671d6207372b47e5039ea2c1103356afe16238cb7e4a9bb3e0b0803858c3aa386
+*/
 
+void initChallenge() {
+  for (int i=0; i<200; i++) {
+    for (int j=0; j<3; j++) {
+      nodeSecrets[i][j] = "";
+    }
+  }
+  for (int i=0; i<50; i++) {
+    groupSize[i] = 0;
+  }
+}
 
 // Web server
 ESP8266WebServer httpServer(80);
@@ -69,6 +88,7 @@ void newConnectionCallback(uint32_t nodeId) {
   //String msg = "secret:1-83247671d6207372b47e5039ea2c1103356afe16238cb7e4a9bb3e0b0803858c3aa386";
   //mesh.sendSingle(nodeId, msg);
 }
+
 
 // Web server handles
 void handleRoot() {
@@ -157,6 +177,7 @@ String textLeft = "";
 
 #define BUTTON_ADC 400
 #define LCD_MAX_CHARS 84
+
 void loop(void) {
   // Mesh update
   mesh.update();
@@ -189,7 +210,6 @@ void loop(void) {
       display.display();  
     }
   }
-  
 }
 void buttonPress(int button) {
   if (100 < button) { // A button is pressed
