@@ -26,10 +26,22 @@ When I did some programming trying to come up with some fun stuff to add I found
 
 ![PCB_MOD](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Prototype_PCB_mod.jpg)
 
-So now I got a prototype I feel pretty good about to work on. It runs on battery and the battery can be charged, AWESOME! Now I want to make the final design. A square badge feels so boring and we've got a cool logo to work with. So I started to create a schematic including the charging curcuit (based on the Adafruit schematic) and the buttons. The final schematic:
+So now I got a prototype I feel pretty good about to work on. It runs on battery and the battery can be charged, AWESOME! Now I want to make the final design. A square badge feels so boring and we've got a cool logo to work with. So I started to create a schematic including the charging curcuit (based on the Adafruit schematic) and the buttons. And I also made some changes I replaced the ESP-12F module for the new ESP-12S module. Same form-factor, removed unnecessary pins and little faster CPU frequency. I had to edit the ESP-12F module PCB footprint myself to get a footprint for the new component. 
+
+The final schematic:
 
 ![Final schematic](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Final_schematic.png)
 
 And the final PCB design:
 
 ![Final PCB](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Final_PCB.png)
+
+(Several month after, when we finally got the finished assembled PCB:s from seeedstudio)
+
+F\*ck. Look at the through-holes for TX/RX. They're placed on top of the ESP-12S module. This is my fault, I'm sorry everybody. I've changed it in the PCB design now, but all your badges include that specific flaw. Also, I used a resistor connected to GPIO00 with a two much resistance. So you can't get the voltage low enough to get the system in flash mode (it stays in 1,4-1,7 V). Either bridge the connection or use a 1k resistor instead. Sorry about that. 
+
+Schematic and PCB with fixed issues.
+
+![Final schematic](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Final_schematic_rev2.png)
+
+![Final PCB](https://github.com/bewniac/securityfest-badge-2019/blob/master/images/Final_PCB_rev2.png)
